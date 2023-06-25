@@ -63,7 +63,7 @@ from sklearn.metrics import precision_score, recall_score
 from bleurt import score as bleurt_score
 
 global local_files_only, metric_type
-local_files_only = True
+local_files_only = False
 
 gpus = tf.config.list_physical_devices('GPU')
 if len(gpus):
@@ -149,7 +149,7 @@ class DataTrainingArguments:
         default='base', metadata={"help": "The type of input to use."}
     )
     model_type: Optional[str] = field(
-        default='multi_task_shared', metadata={"help": "The type of model to use."}
+        default='uniGen', metadata={"help": "The type of model to use."}
     )
     debug_model: Optional[bool] = field(
         default=False, metadata={"help": "Run model in debug mode with less data."}
@@ -534,16 +534,6 @@ def main():
         data_args.train_file = 'data/train_rand.jsonl'
         data_args.validation_file = 'data/dev_rand.jsonl'
         data_args.test_file = 'data/test_rand.jsonl'
-    elif 'semeval' in data_args.data_type:
-        data_args.train_file = 'data/train_semeval_1int.jsonl'
-        data_args.validation_file = 'data/test_semeval_1int.jsonl'
-        data_args.test_file = 'data/test_semeval_1int.jsonl'
-    elif 'comb' in data_args.data_type:
-        data_args.train_file = [data_args.train_file, 'data/train_semeval_1int.jsonl']
-        # data_args.validation_file = [data_args.validation_file, 'data/test_semeval_1int.jsonl']
-        # if data_args.test_file == 'data/test.jsonl':
-        #     data_args.test_file = [data_args.test_file, 'data/test_semeval_1int.jsonl']
-        # data_args.test_file = ['data/test_semeval_1int.jsonl']
     elif 'integrate' in data_args.data_type:
         data_args.train_file = 'data/train_integrate.jsonl'
         data_args.validation_file = 'data/dev_integrate.jsonl'
@@ -578,26 +568,8 @@ def main():
             # extension = data_args.test_file.split(".")[-1]        
 
         raw_datasets = load_dataset('json', data_files=data_files, cache_dir=model_args.cache_dir)
-        # if 'semeval' in data_args.data_type:
-        #     raw_datasets = raw_datasets.map(lambda example: {'input': example['noun_phrase'], 'output': example['interpretations'][0]})
-        # else:
-        if 'merge' in data_args.data_type:
-            raw_datasets = raw_datasets.map(lambda example: {'input': example['sentence']+' [SEP] '+example['noun_phrase'].strip(), 'explicit_relation': example['merge'], 'output': example['merge']})
-        elif 'integrate' in data_args.data_type:
+        if 'integrate' in data_args.data_type:
             raw_datasets = raw_datasets
-        # elif 'ner' in data_args.data_type:
-        #     nlp = spacy.load('en_core_web_sm')
-        #     def get_ner(sentence, word):
-        #         doc = nlp(sentence)
-        #         if len(doc.ents) > 0:
-        #             for ent in doc.ents:
-        #                 if ent.text == word:
-        #                     return ent.label_
-        #         return 'NONE'
-
-        #     raw_datasets = raw_datasets.map(lambda example: {'input': example['nnp']+' '+example['nn']+' [SEP] '+get_ner(example['nnp']+' '+example['nn']),
-        #                                     'output': example['explicit_relation']},
-        #                                     load_from_cache_file=False)        
         else:
             raw_datasets = raw_datasets.map(lambda example: {'input': example['nnp']+' '+example['nn'], 'output': example['explicit_relation']})                
 
@@ -629,26 +601,11 @@ def main():
                     return word+' meaning: '
 
         if 'knowledge' in data_args.data_type:
-            # facts_trainD = pickle.load(open(data_args.train_file+'_10_facts.pkl','rb'))
-            # facts_devD = pickle.load(open(data_args.validation_file+'_10_facts.pkl','rb'))
-            # facts_testD = pickle.load(open(data_args.test_file+'_10_facts.pkl','rb'))
-            # factsD = facts_trainD
-            # factsD.update(facts_devD)
-            # factsD.update(facts_testD)
-            summariesD = pickle.load(open('data/summaries_1.pkl','rb'))        
+            summariesD = pickle.load(open('data/summaries.pkl','rb'))        
             if 'nnp' in data_args.data_type:
                 raw_datasets = raw_datasets.map(lambda example: {'input': get_desc(example['nnp'])+' [SEP] '+example['input']}, load_from_cache_file=False)
             if 'nn' in data_args.data_type:
                 raw_datasets = raw_datasets.map(lambda example: {'input': get_desc(example['nn'])+' [SEP] '+example['input']}, load_from_cache_file=False)    
-
-        # if 'wn' in data_args.data_type:
-        #     # def get_wn_definition(word):
-        #     #     synsets = wn.synsets(nn)
-        #     #     if len(synsets) > 0:
-        #     #         return nn+' meaning: '+synsets[0].definition()
-        #     #     else:
-        #     #         return ''
-        #     raw_datasets = raw_datasets.map(lambda example: {'input': get_desc(example['nn'])+' [SEP] '+example['input']}, load_from_cache_file=False)
 
         if 'shufflennp' in data_args.data_type:
             raw_datasets = raw_datasets.map(lambda example: {'shuff_nnp': ''.join(sorted(example['nnp'], key=lambda k: random.random()))})
@@ -658,10 +615,6 @@ def main():
             raw_datasets = raw_datasets.map(lambda example: {'shuff_nn': ''.join(sorted(example['nn'], key=lambda k: random.random()))})
             raw_datasets = raw_datasets.map(lambda example: {'input': example['input'].replace(example['nn'], example['shuff_nn']), 
                 'output': example['output'].replace(example['nn'], example['shuff_nn']), 'nn': example['shuff_nn']})
-
-        # if 'filterNone' in data_args.data_type:
-        ## Remove none examples
-        # raw_datasets = raw_datasets.filter(lambda example: example['explicit_relation']!='')
         
         ## Train Split
         if data_args.train_split != 1:
@@ -670,37 +623,22 @@ def main():
 
         if data_args.debug_model:
             raw_datasets = raw_datasets.filter(lambda example, index: index < 100, with_indices=True)
-        # raw_datasets['train'] = raw_datasets['train'][:200]
 
-        # else: 
-        #     raw_datasets = raw_datasets.map(lambda example: {'output': example['nnp']+' '+example['nn']+' is None of '+example['nnp'] \
-        #         if not example['explicit_relation'] else example['explicit_relation']})
         if 'integrate' not in data_args.data_type:
             raw_datasets['train'] = raw_datasets['train'].map(lambda example: {'output': ' '.join(example['output'].split()[2:])})
-        if 'multi_task' in data_args.model_type:
+
+        if data_args.model_type == 'clsGen':
             raw_datasets = raw_datasets.map(lambda example: {'output': '[NONE] '+example['output'] if example['explicit_relation']!='' else '[NOTNONE] '+example['output']})
-        elif data_args.model_type == 'generation':
+        elif data_args.model_type == 'uniGen':
             if 'integrate' in data_args.data_type:
                 raw_datasets = raw_datasets
-            elif data_args.filter_non_comp:
-                raw_datasets = raw_datasets.filter(lambda example: example['explicit_relation']!='')
             else:
                 raw_datasets = raw_datasets.map(lambda example: {'output': example['output'] if example['explicit_relation']!='' else example['nnp']+' '+example['nn']+' is None of '+example['nnp']})
-        elif data_args.model_type == 'generation_basic':
-            raw_datasets = raw_datasets.map(lambda example: {'output': example['output'] if example['explicit_relation']!='' else 'None'})
 
 
     if not training_args.do_train:
         model_args.model_name_or_path = training_args.output_dir
 
-    # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
-
-    # Load pretrained model and tokenizer
-    #
-    # Distributed training:
-    # The .from_pretrained methods guarantee that only one local process can concurrently
-    # download model & vocab.
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -869,8 +807,6 @@ def main():
                 desc="Running tokenizer on prediction dataset",
             )
 
-    # batch_sampler = raw_datasets.make_dynamic_sampler(1024, distributed=False)
-
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
     data_collator = DataCollatorForSeq2Seq(
@@ -918,8 +854,6 @@ def main():
         return compute_metrics_helper(decoded_preds, decoded_labels, none_preds, test=False)
 
     def compute_metrics_test(eval_preds):
-        # if data_args.mode == 'news':
-        #     return {'scores': 0}
         preds, labels = eval_preds
         
         none_preds = None
@@ -944,81 +878,6 @@ def main():
         decoded_preds = decoded_preds_comp
         return compute_metrics_helper(decoded_preds, decoded_labels, none_preds, test=True)
 
-        # decoded_labels = [d.split(';') for d in decoded_labels]
-
-        ## bad heuristic for running only in test mode
-        # if data_args.two_stage and len(decoded_labels) == len(open(data_args.two_stage,'r').readlines()):
-        #     for k, line in enumerate(open(data_args.two_stage,'r')):
-        #         none_pred = int(line.strip())
-        #         if k == len(decoded_preds):
-        #             break
-        #         if not none_pred:
-        #             words = decoded_labels[k][0].split()[:2]
-        #             nnp, nn = words[0], words[1]
-        #             decoded_preds[k] = nnp+' '+nn+' is None of '+nnp
-
-        # result = {'all_scores':[]}
-        # if metric_type == 'nli':
-        #     classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli", device=0)
-        #     for k in tqdm(range(len(decoded_preds))):
-        #         pred = decoded_preds[k].split('\t')[0] # remove score at end, if present
-        #         pred = ' '.join(pred.split()[2:])
-        #         if pred == '':
-        #             pred = 'NA'
-        #         score1 = []
-        #         for gold in decoded_labels[k]:
-        #             gold = ' '.join(gold.split()[2:])
-        #             pred_gold = classifier(pred, [gold])['scores'][0]
-        #             gold_pred = classifier(gold, [pred])['scores'][0]
-        #             score1.append((pred_gold+gold_pred)/2)
-        #         result['all_scores'].append(max(score1))
-
-        #     # metric_batch_size = 128
-        #     # metric_num_batches = int(math.ceil(len(decoded_labels) / metric_batch_size))
-        #     # for k in range(metric_num_batches):
-        #     #     pred_gold_result = classifier(decoded_preds[k*metric_batch_size:(k+1)*metric_batch_size], \
-        #     #         [[l] for l in decoded_labels[k*metric_batch_size:(k+1)*metric_batch_size]])
-        #     #     gold_pred_result = classifier(decoded_labels[k*metric_batch_size:(k+1)*metric_batch_size], \
-        #     #         decoded_preds[k*metric_batch_size:(k+1)*metric_batch_size])
-        #     #     sum_scores = pred_gold_result + gold_pred_result
-        #     #     result['all_scores'].extend(sum_scores.cpu().numpy().tolist())
-
-
-        # elif metric_type == 'bleurt': 
-        #     metric_batch_size = 128
-        #     metric_num_batches = int(math.ceil(len(decoded_labels) / metric_batch_size))
-        #     for k in range(metric_num_batches):
-        #         result_batch = metric.compute(predictions=decoded_preds[k*metric_batch_size:(k+1)*metric_batch_size], \
-        #             references=decoded_labels[k*metric_batch_size:(k+1)*metric_batch_size])
-        #         result['all_scores'].extend(result_batch['scores'])        
-        # elif metric_type == 'sacrebleu':
-        #     for k in range(len(decoded_preds)):
-        #         result['all_scores'].append(metric.compute(predictions=[decoded_preds[k]], references=[decoded_labels[k]])['score']/100)
-        #     # result['all_scores'] = metric.compute(predictions=decoded_preds, references=[[k] for k in decoded_labels])['score']
-
-        # none_correct, none_total = 0, 0
-        # for k in range(len(decoded_labels)):
-        #     label = decoded_labels[k][0]
-        #     pred = decoded_preds[k]
-        #     none_total += 1
-        #     if 'is None of' in label or 'is None of' in pred:
-        #         if label == pred:
-        #             none_correct += 1
-        #             result['all_scores'][k] = 1
-        #         else:
-        #             result['all_scores'][k] = 0
-        #     else:
-        #         none_correct += 1
-
-        # result_metric = metric.compute(predictions=decoded_preds, references=decoded_labels)
-        # # Extract a few results from ROUGE
-        # result = {key: value.mid.fmeasure * 100 for key, value in result.items()}
-        # prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
-        # result["gen_len"] = np.mean(prediction_lens)
-        # result = {k: round(v, 4) for k, v in result.items()}
-        # result['scores'] = np.mean(result['all_scores'])*100
-        # result['none_accuracy'] = (100.*none_correct)/none_total
-        # return result
 
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
@@ -1147,11 +1006,6 @@ def main():
             kwargs["dataset"] = f"{data_args.dataset_name} {data_args.dataset_config_name}"
         else:
             kwargs["dataset"] = data_args.dataset_name
-
-    # if training_args.push_to_hub:
-    #     trainer.push_to_hub(**kwargs)
-    # else:
-    #     trainer.create_model_card(**kwargs)
 
     return results
 

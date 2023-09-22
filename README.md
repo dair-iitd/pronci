@@ -46,7 +46,7 @@ If you find the work useful, please consider citing our work
     title = "{``}Covid vaccine is against Covid but {O}xford vaccine is made at {O}xford!{''} Semantic Interpretation of Proper Noun Compounds",
     author = "Kolluru, Keshav  and
       Stanovsky, Gabriel  and
-      -, Mausam",
+      Mausam",
     booktitle = "Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing",
     month = dec,
     year = "2022",

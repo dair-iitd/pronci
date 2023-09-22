@@ -42,7 +42,7 @@ bash openie_nci.sh
 If you find the work useful, please consider citing our work
 
 ```
-@inproceedings{kolluru-etal-2022-covid,
+@inproceedings{kolluru22pronci,
     title = "{``}Covid vaccine is against Covid but {O}xford vaccine is made at {O}xford!{''} Semantic Interpretation of Proper Noun Compounds",
     author = "Kolluru, Keshav  and
       Stanovsky, Gabriel  and

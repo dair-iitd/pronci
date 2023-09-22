@@ -17,6 +17,7 @@ cd ..
 
 # Data
 
+The data directory contains all the required files collected and used for the project.
 
 
 # Model Training

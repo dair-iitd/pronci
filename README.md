@@ -28,7 +28,7 @@ data= rand (or) nns
 knowledge= base (or) sentence (or) knowledge_nnp (or) knowledge_nn (or) ner
 seed=42
 
-python run.py --model_name_or_path t5-base --output_dir models/${model_type}_${data}/${knowledge}/seed${seed} --overwrite_output_dir --do_predict --predict_with_generate --overwrite_cache --metric_type sacrebleu --num_train_epochs 10  --per_device_train_batch_size 16 --data_type ${regime}_${knowledge} --model_type ${model_type} --seed ${seed}
+python run.py --model_name_or_path t5-base --output_dir models/${model_type}_${data}/${knowledge}/seed${seed} --overwrite_output_dir --do_predict --predict_with_generate --overwrite_cache --metric_type sacrebleu --num_train_epochs 10  --per_device_train_batch_size 16 --data_type ${data}_${knowledge} --model_type ${model_type} --seed ${seed}
 ```
 
 # Open IE Integration

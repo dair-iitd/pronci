@@ -36,3 +36,21 @@ python run.py --model_name_or_path t5-base --output_dir models/${model_type}_${d
 ```
 bash openie_nci.sh
 ```
+
+# Citation
+
+If you find the work useful, please consider citing our work
+
+```
+@inproceedings{kolluru-etal-2022-covid,
+    title = "{``}Covid vaccine is against Covid but {O}xford vaccine is made at {O}xford!{''} Semantic Interpretation of Proper Noun Compounds",
+    author = "Kolluru, Keshav  and
+      Stanovsky, Gabriel  and
+      -, Mausam",
+    booktitle = "Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing",
+    month = dec,
+    year = "2022",
+    address = "Abu Dhabi, United Arab Emirates",
+    publisher = "Association for Computational Linguistics",    
+}
+```
